@@ -256,3 +256,4 @@ app.delete('/board/:id', verifyToken, (req, res) => {
 });
 
 app.listen(3000, () => console.log('🚀 KMS Server Ready!'));
+console.log("전속 깃허브 로봇 자동 배포 테스트 성공");
