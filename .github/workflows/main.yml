@@ -1,28 +1,39 @@
-name: NCP 3-Tier CI/CD Pipeline (Self-Hosted)
+name: NCP 3-Tier CI/CD Pipeline (Dual-Core)
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  deploy:
-    runs-on: self-hosted
-
+  # 1. WAS 서버 배포 로봇
+  deploy-was:
+    runs-on: [self-hosted, was] # <--- 'was' 이름표 붙은 로봇만 출동!
     steps:
-    - name: 1. 깃허브 로봇 작업실로 최신 코드 다운로드
+    - name: 깃허브에서 최신 코드 다운로드
       uses: actions/checkout@v3
 
-    - name: 2. WAS 서버 코드로 덮어쓰고 서버 재시작
+    - name: WAS 배포 및 PM2 재시작
       run: |
-        # 1. 다운받은 코드를 실제 서버 폴더로 덮어쓰기
         cp -rf was-server/* /root/my-board-server/
-        
-        # 2. 서버 폴더로 이동해서 패키지 설치
         cd /root/my-board-server
         npm install
-        
-        # 3. [핵심] PM2가 기존 실행 목록을 찾을 수 있도록 HOME 환경변수 강제 주입!
         export HOME=/root
-        
-        # 4. 서버 재시작 (목록에 없으면 새로 시작해라!)
         pm2 restart server.js || pm2 start server.js
+
+  # 2. 웹 서버 배포 로봇
+  deploy-web:
+    runs-on: [self-hosted, web] # <--- 'web' 이름표 붙은 로봇만 출동!
+    steps:
+    - name: 깃허브에서 최신 코드 다운로드
+      uses: actions/checkout@v3
+
+    - name: 프론트엔드 배포 및 Nginx 재시작
+      run: |
+        # 다운받은 index.html을 Nginx 폴더로 강제 복사!
+        cp -rf web-server/index.html /usr/share/nginx/html/
+        
+        # Nginx 설정 파일(nginx.conf)도 덮어쓰기!
+        cp -rf web-server/nginx.conf /etc/nginx/nginx.conf
+        
+        # 설정 적용을 위해 Nginx 재시작
+        systemctl restart nginx
