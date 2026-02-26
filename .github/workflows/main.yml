@@ -1,0 +1,34 @@
+name: NCP 3-Tier CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ] # main 브랜치에 코드가 푸시되면 로봇 출동!
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 1. 깃허브에서 최신 코드 가져오기
+      uses: actions/checkout@v3
+
+    - name: 2. 웹서버(문지기) 거쳐서 프라이빗 WAS 서버에 자동 배포
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        # 문지기(Web 서버) 정보
+        proxy_host: ${{ secrets.WEB_IP }}
+        proxy_username: root
+        proxy_password: ${{ secrets.WEB_PASSWORD }}
+        proxy_port: 22
+        
+        # 최종 목적지(WAS 서버) 정보
+        host: ${{ secrets.WAS_IP }}
+        username: root
+        password: ${{ secrets.WAS_PASSWORD }}
+        port: 22
+        
+        # WAS 서버에 접속해서 실행할 명령어들
+        script: |
+          cd /root/my-board-server
+          git pull origin main
+          npm install
+          pm2 restart server.js
