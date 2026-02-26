@@ -6,12 +6,18 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted # <--- 우분투 알바생 해고! 우리 집 전용 로봇 호출!
+    runs-on: self-hosted
 
     steps:
-    - name: WAS 서버 내부에서 직접 배포 스크립트 실행
+    - name: 1. 깃허브 로봇 작업실로 최신 코드 다운로드
+      uses: actions/checkout@v3
+
+    - name: 2. WAS 서버 코드로 덮어쓰고 서버 재시작
       run: |
+        # 로봇이 다운받은 was-server 폴더 내용물을 실제 서버 폴더로 강제 복사!
+        cp -rf was-server/* /root/my-board-server/
+        
+        # 실제 서버 폴더로 이동해서 패키지 설치 및 서버 재시작
         cd /root/my-board-server
-        git pull origin main
         npm install
         pm2 restart server.js
