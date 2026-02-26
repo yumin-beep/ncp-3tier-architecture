@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Square Board</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== 1. 기본 설정 ==================== */
+        * { box-sizing: border-box; outline: none; }
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+            margin: 0; min-height: 100vh; color: #333;
+            overflow: hidden; /* 전체 화면 스크롤 방지 (떠다니는 이미지 위해) */
+        }
+
+        /* ★ [수정] 메인 래퍼: 스크롤 및 중앙 정렬 담당 */
+        #main-wrapper {
+            width: 100%; 
+            height: 100vh; 
+            overflow-y: auto; /* 내용이 길어지면 이 안에서 스크롤 */
+            padding-top: 60px;
+            padding-bottom: 60px; /* 하단 여백 확보 */
+            text-align: center; /* 컨테이너 중앙 정렬을 위해 */
+        }
+
+        /* ★ [수정] 컨테이너: 내용에 따라 높이 자동 조절 */
+        .container { 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; 
+            border-radius: 20px; 
+            width: 420px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+            backdrop-filter: blur(10px);
+            
+            display: inline-block; /* 중앙 정렬을 위해 block 대신 inline-block 사용 */
+            text-align: left; /* 내부 텍스트는 다시 왼쪽 정렬 */
+            vertical-align: top;
+            margin-bottom: 30px; /* 스크롤 시 하단 여백 */
+            
+            position: relative; z-index: 10; 
+        }
+        .hidden { display: none; }
+        h2 { text-align: center; margin-bottom: 30px; color: #2c3e50; font-weight: 700; }
+
+        /* ==================== 2. UI 요소 ==================== */
+        input, textarea { 
+            width: 100%; padding: 15px; margin-bottom: 15px; 
+            border: 2px solid #eee; border-radius: 12px; background: #f9f9f9; 
+            font-size: 14px; transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus { border-color: #00C73C; background: #fff; }
+
+        button.primary-btn { 
+            width: 100%; padding: 15px; background: linear-gradient(to right, #00C73C, #00b894); 
+            color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; 
+            cursor: pointer; margin-bottom: 10px; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button.primary-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 199, 60, 0.3); }
+
+        button.secondary-btn {
+            width: 100%; padding: 12px; background: #eee; color: #555; border: none; 
+            border-radius: 12px; font-weight: 500; cursor: pointer; margin-bottom: 5px;
+        }
+        button.secondary-btn:hover { background: #e0e0e0; }
+
+        /* ==================== 3. 플로팅 UI ==================== */
+        #timer-box { 
+            position: fixed; top: 25px; right: 25px; background: #ff4757; color: white; 
+            padding: 8px 20px; border-radius: 50px; font-weight: 700; font-size: 14px;
+            display: none; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); z-index: 1000;
+        }
+        #fixed-logout-btn {
+            position: fixed; top: 80px; right: 25px; background: #2f3542; color: white;
+            padding: 10px 20px; border-radius: 50px; font-weight: 600; font-size: 13px;
+            cursor: pointer; border: none; display: none; 
+            box-shadow: 0 4px 15px rgba(47, 53, 66, 0.3); z-index: 1000;
+        }
+        #fixed-logout-btn:hover { background: #57606f; }
+
+        /* ==================== 4. 게시판 스타일 ==================== */
+        #board-box { width: 600px; }
+        .board-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f1f2f6; }
+        .welcome-text { font-size: 14px; color: #7f8fa6; font-weight: 500; }
+        .write-area { background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #eee; }
+        
+        .post-card { background: white; border: 1px solid #eee; border-radius: 15px; padding: 20px; margin-bottom: 20px; transition: transform 0.2s; }
+        .post-card:hover { border-color: #00C73C; }
+        .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .post-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 35px; height: 35px; background: #dfe4ea; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 18px; }
+        .post-meta { display: flex; flex-direction: column; }
+        .nickname { font-weight: 700; font-size: 14px; color: #2f3542; }
+        .timestamp { font-size: 11px; color: #a4b0be; }
+        .post-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #2f3542; }
+        .post-content { font-size: 14px; color: #57606f; line-height: 1.6; white-space: pre-wrap; margin-bottom: 15px; }
+        
+        .post-image { 
+            width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid #f1f2f6; 
+            cursor: grab; transition: opacity 0.2s;
+        }
+        .post-image:active { cursor: grabbing; }
+        .delete-btn { background: #ff6b81; color: white; border: none; padding: 5px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; font-weight: bold; }
+        
+        /* ★ [수정] 페이지네이션 스타일 (여백 확보) */
+        .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 30px; padding-bottom: 10px; }
+        .page-btn { padding: 8px 12px; border: 1px solid #ddd; background: white; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .page-btn.active { background: #00C73C; color: white; border-color: #00C73C; font-weight: bold; }
+
+        /* ==================== 5. 이미지 모달 & 플로팅 스티커 ==================== */
+        #img-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center;
+            z-index: 9999; opacity: 0; transition: opacity 0.3s ease; backdrop-filter: blur(5px);
+        }
+        #img-modal.show { display: flex; opacity: 1; }
+        #img-modal-content {
+            max-width: 90%; max-height: 90%; transform: scale(0.5) translateY(50px); opacity: 0;
+            border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); 
+        }
+        #img-modal.show #img-modal-content { transform: scale(1) translateY(0); opacity: 1; }
+
+        .floating-sticker {
+            position: fixed; width: 200px; height: auto; border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 5; cursor: pointer;
+            transition: transform 0.1s linear; border: 4px solid white; user-select: none;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .floating-sticker:hover { transform: scale(1.05) !important; z-index: 100; border-color: #00C73C; }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+    </style>
+</head>
+<body ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+
+    <div id="timer-box">⏱️ <span id="time-left">60:00</span></div>
+    <button id="fixed-logout-btn" onclick="logout()">로그아웃</button>
+
+    <div id="img-modal" onclick="closeModal()">
+        <img id="img-modal-content" src="">
+    </div>
+
+    <div id="main-wrapper">
+        <div class="container" id="login-box">
+            <h2 style="font-size: 24px;">☁️ Cloud Square</h2>
+            <p style="text-align:center; color:#888; margin-bottom:30px; font-size:14px;">나른한 햇살을 머금은 마루처럼</p>
+            <input type="text" id="login-id" placeholder="아이디">
+            <input type="password" id="login-pw" placeholder="비밀번호">
+            <button class="primary-btn" onclick="login()">로그인</button>
+            <div style="display:flex; gap:10px;">
+                <button class="secondary-btn" onclick="showSignup()">회원가입</button>
+                <button class="secondary-btn" onclick="showForgot()">PW 찾기</button>
+            </div>
+        </div>
+
+        <div class="container hidden" id="signup-box">
+            <h2>회원가입</h2>
+            <input type="text" id="sign-id" placeholder="아이디">
+            <input type="password" id="sign-pw" placeholder="비밀번호">
+            <input type="text" id="sign-nick" placeholder="닉네임">
+            <input type="email" id="sign-email" placeholder="이메일">
+            <button class="primary-btn" onclick="register()">가입하기</button>
+            <button class="secondary-btn" onclick="showLogin()">뒤로가기</button>
+        </div>
+
+        <div class="container hidden" id="forgot-box">
+            <h2>비밀번호 재설정</h2>
+            <div id="step-1">
+                <input type="email" id="forgot-email" placeholder="가입시 등록한 이메일">
+                <button class="primary-btn" onclick="sendCode()">인증번호 받기</button>
+            </div>
+            <div id="step-2" class="hidden">
+                <input type="text" id="auth-code" placeholder="인증번호">
+                <input type="password" id="new-pw" placeholder="새 비밀번호">
+                <button class="primary-btn" onclick="resetPw()">변경하기</button>
+            </div>
+            <button class="secondary-btn" onclick="showLogin()">취소</button>
+        </div>
+
+        <div class="container hidden" id="board-box">
+            <div class="board-header">
+                <h2 style="margin:0; text-align:left;"> 통합 게시판</h2>
+                <span class="welcome-text" id="welcome-msg"></span>
+            </div>
+            <div class="write-area">
+                <input type="text" id="title" placeholder="제목">
+                <textarea id="content" placeholder="내용" rows="3"></textarea>
+                <input type="file" id="file-input" style="padding:10px; background:white;">
+                <button class="primary-btn" onclick="uploadAndWrite()" style="margin-bottom:0;">게시글 등록</button>
+            </div>
+            <div id="list"></div>
+            <div class="pagination" id="pagination-controls"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://tier3-alb01-126635586-e2080729eee0.kr.lb.naverncp.com';
+        let timerInterval, allPosts = [], currentPage = 1;
+        const postsPerPage = 5;
+        let draggedImageSrc = null;
+
+        // ================= 드래그 앤 드롭 & 배회 =================
+        function handleDragStart(e) { draggedImageSrc = e.target.src; }
+        function handleDragOver(e) { e.preventDefault(); }
+        function handleDrop(e) {
+            e.preventDefault();
+            if (!e.target.closest('.container') && draggedImageSrc) {
+                spawnFloatingImage(draggedImageSrc, e.clientX, e.clientY);
+            }
+            draggedImageSrc = null;
+        }
+        function spawnFloatingImage(src, startX, startY) {
+            const img = document.createElement('img'); img.src = src; img.classList.add('floating-sticker'); img.style.left = startX + 'px'; img.style.top = startY + 'px'; img.title = "더블 클릭하여 닫기"; img.ondblclick = function() { this.remove(); }; document.body.appendChild(img);
+            let x = startX; let y = startY; let dx = (Math.random() - 0.5) * 4; let dy = (Math.random() - 0.5) * 4; if(Math.abs(dx) < 0.5) dx = 1; if(Math.abs(dy) < 0.5) dy = 1;
+            function animate() {
+                if(!document.body.contains(img)) return;
+                const rect = img.getBoundingClientRect(); const winWidth = window.innerWidth; const winHeight = window.innerHeight;
+                if (rect.left <= 0 || rect.right >= winWidth) dx *= -1; if (rect.top <= 0 || rect.bottom >= winHeight) dy *= -1;
+                x += dx; y += dy; if(x < 0) x = 0; if(y < 0) y = 0; if(x > winWidth - rect.width) x = winWidth - rect.width; if(y > winHeight - rect.height) y = winHeight - rect.height;
+                img.style.left = x + 'px'; img.style.top = y + 'px'; requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // ================= 기존 기능 =================
+        function showLogin() { hideAll(); document.getElementById('login-box').classList.remove('hidden'); }
+        function showSignup() { hideAll(); document.getElementById('signup-box').classList.remove('hidden'); }
+        function showForgot() { hideAll(); document.getElementById('forgot-box').classList.remove('hidden'); }
+        function hideAll() { document.querySelectorAll('.container').forEach(e => e.classList.add('hidden')); document.getElementById('fixed-logout-btn').style.display = 'none'; }
+
+        function openModal(imageSrc) {
+            const modal = document.getElementById('img-modal'); const modalImg = document.getElementById('img-modal-content'); modalImg.src = imageSrc.split('?')[0]; modal.style.display = 'flex'; setTimeout(() => { modal.classList.add('show'); }, 10);
+        }
+        function closeModal() {
+            const modal = document.getElementById('img-modal'); modal.classList.remove('show'); setTimeout(() => { modal.style.display = 'none'; }, 300);
+        }
+        function showBoard() { 
+            hideAll(); document.getElementById('board-box').classList.remove('hidden'); document.getElementById('fixed-logout-btn').style.display = 'block'; 
+            const nick = localStorage.getItem('myNick'); if(nick) document.getElementById('welcome-msg').innerText = `${nick}님, 환영합니다! 👋`; loadPosts(); 
+        }
+
+        function startTimer(duration) {
+            let timer = duration, minutes, seconds; const display = document.querySelector('#time-left'); document.getElementById('timer-box').style.display = 'block'; clearInterval(timerInterval); 
+            timerInterval = setInterval(function () {
+                minutes = parseInt(timer / 60, 10); seconds = parseInt(timer % 60, 10); minutes = minutes < 10 ? "0" + minutes : minutes; seconds = seconds < 10 ? "0" + seconds : seconds; display.textContent = minutes + ":" + seconds; if (--timer < 0) { clearInterval(timerInterval); alert("시간 만료. 재로그인 해주세요."); logout(); }
+            }, 1000);
+        }
+
+        async function register() {
+            const res = await fetch(`${API_URL}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: document.getElementById('sign-id').value, password: document.getElementById('sign-pw').value, nickname: document.getElementById('sign-nick').value, email: document.getElementById('sign-email').value }) }); const data = await res.json(); alert(data.msg); if(data.success) showLogin();
+        }
+        async function login() {
+            const id = document.getElementById('login-id').value; const res = await fetch(`${API_URL}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: id, password: document.getElementById('login-pw').value }) }); const data = await res.json();
+            if(data.success) { localStorage.setItem('token', data.token); localStorage.setItem('myId', id); localStorage.setItem('myNick', data.nickname); showBoard(); startTimer(60*60); } else alert(data.msg);
+        }
+        async function sendCode() {
+            const res = await fetch(`${API_URL}/auth/send-code`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: document.getElementById('forgot-email').value }) }); const data = await res.json(); alert(data.msg); if(data.success) { document.getElementById('step-1').classList.add('hidden'); document.getElementById('step-2').classList.remove('hidden'); }
+        }
+        async function resetPw() {
+            const res = await fetch(`${API_URL}/auth/reset-pw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: document.getElementById('forgot-email').value, code: document.getElementById('auth-code').value, newPassword: document.getElementById('new-pw').value }) }); const data = await res.json(); alert(data.msg); if(data.success) showLogin();
+        }
+        async function uploadAndWrite() {
+            const file = document.getElementById('file-input').files[0]; let imagePath = '';
+            if (file) {
+                const res = await fetch(`${API_URL}/presigned-url`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ filename: file.name }) }); const data = await res.json(); await fetch(data.url, { method: 'PUT', body: file, headers: {'Content-Type': file.type} }); imagePath = data.url.split('?')[0];
+            }
+            const res = await fetch(`${API_URL}/board`, { method: 'POST', headers: {'Content-Type':'application/json','Authorization': 'Bearer ' + localStorage.getItem('token')}, body: JSON.stringify({ title: document.getElementById('title').value, content: document.getElementById('content').value, image_path: imagePath }) });
+            if(res.ok) { document.getElementById('title').value=''; document.getElementById('content').value=''; document.getElementById('file-input').value=''; currentPage=1; loadPosts(); } else alert("실패");
+        }
+        async function deletePost(id) {
+            if(!confirm('삭제하시겠습니까?')) return; const res = await fetch(`${API_URL}/board/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); const data = await res.json(); alert(data.msg); if(data.success) loadPosts();
+        }
+
+        async function loadPosts() { const res = await fetch(`${API_URL}/board`); allPosts = await res.json(); renderPage(); }
+        function renderPage() {
+            const div = document.getElementById('list'); const myId = localStorage.getItem('myId');
+            const startIndex = (currentPage - 1) * postsPerPage; const pagePosts = allPosts.slice(startIndex, startIndex + postsPerPage);
+            div.innerHTML = pagePosts.map(p => {
+                const isMine = (p.user_id && p.user_id === myId); const deleteBtn = isMine ? `<button class="delete-btn" onclick="deletePost(${p.id})">삭제</button>` : ''; const avatar = ['🐶','🐱','🐭','🐹','🐰','🦊'][p.id % 6] || '👤';
+                const imgTag = p.image_path ? `<img class="post-image" src="${p.image_path}?type=m&w=500" draggable="true" ondragstart="handleDragStart(event)" ondblclick="openModal('${p.image_path}')" title="드래그 or 더블클릭">` : '';
+                return `
+                    <div class="post-card">
+                        <div class="post-header"><div class="post-info"><div class="avatar">${avatar}</div><div class="post-meta"><span class="nickname">${p.nickname||'익명'}</span><span class="timestamp">${p.created_at||''}</span></div></div>${deleteBtn}</div>
+                        <div class="post-title">${p.title}</div><div class="post-content">${p.content}</div>${imgTag}
+                    </div>
+                `;
+            }).join('');
+            renderPagination();
+        }
+        function renderPagination() {
+            const controls = document.getElementById('pagination-controls'); const totalPages = Math.ceil(allPosts.length / postsPerPage);
+            // ★ 게시글이 5개 이하라도 페이지네이션 UI가 보이도록 조건 수정 (원하시면 주석 해제)
+            // if (totalPages <= 1) { controls.innerHTML = ''; return; } 
+            controls.innerHTML = `<button class="page-btn" onclick="currentPage--; renderPage()" ${currentPage===1?'disabled':''}>&lt;</button><span style="padding:0 10px; font-weight:bold; color:#555;">${currentPage} / ${totalPages || 1}</span><button class="page-btn" onclick="currentPage++; renderPage()" ${currentPage===totalPages||totalPages===0?'disabled':''}>&gt;</button>`;
+        }
+        function logout() { localStorage.clear(); clearInterval(timerInterval); location.reload(); }
+        window.onload = function() { if(localStorage.getItem('token')) { showBoard(); startTimer(60*60); } }
+    </script>
+</body>
+</html>
