@@ -1,27 +1,30 @@
-# NCP 3-Tier 고가용성 아키텍처 구축 & PoC
+# NCP 3-Tier Architecture PoC
 
-> 네이버클라우드(NCP) 위에 Web – WAS – DB 3계층 아키텍처를 직접 구성하고, 그 위에서 도는 커뮤니티 서비스를 구현한 PoC
+Naver Cloud에서 웹, 서버, 데이터베이스를 나눠 직접 구성해 본 현장실습 프로젝트임.
 
-## 구성
+- 기간: 2026.01.29 ~ 2026.02.11
+- 구분: 클라우드스퀘어 현장실습 개인 프로젝트
+- 담당: 구조 설계, 개발, 보안 설정과 배포
+- 기술: Naver Cloud, Nginx, Node.js, Express, MySQL
 
+## 만든 구조
+
+```text
+사용자 → Global Edge → Load Balancer → Nginx → Node.js → MySQL
+                                              └→ Object Storage
 ```
-[Global Edge(CDN)] → [ALB(로드밸런서)] → [Web: Nginx] → [WAS: Node.js] → [DB: MySQL]
-                                                          └→ [Object Storage] (이미지 업로드)
-```
 
-- **Web 계층** — Nginx 리버스 프록시 (`web-server/nginx.conf`), 정적 페이지 서빙
-- **WAS 계층** — Node.js/Express (`was-server/server.js`): 게시판 글·사진 업로드 커뮤니티 API
-- **인증** — 회원가입, **이메일 인증 기반 비밀번호 찾기**, **JWT** 세션
-- **스토리지** — 업로드 이미지를 NCP **Object Storage**에 저장, CORS 설정 스크립트(`set_cors.js`) 포함
-- **전송 최적화** — **Global Edge**(CDN)로 정적 자원 캐싱
-- **가용성** — ALB 뒤에 서버를 두어 장애 시 트래픽 우회가 가능한 구조로 설계
-- **배포 자동화** — GitHub Actions 워크플로우(`.github/workflows/main.yml`)로 배포 자동화 구성
+## 만든 기능
 
-## 만들면서 한 고민
+- 회원가입, 로그인과 JWT 인증을 구현했음.
+- 이메일 인증을 이용한 비밀번호 찾기를 만들었음.
+- 글 작성과 사진 업로드가 되는 게시판을 구현했음.
+- 사진은 Object Storage에 저장하고 정적 파일은 Global Edge로 전달했음.
+- 중요한 값은 코드에 직접 적지 않고 환경 변수로 분리했음.
+- GitHub Actions를 이용해 배포 과정을 정리했음.
 
-클라우드 리소스를 콘솔에서 "되게만" 만드는 게 아니라, **각 계층이 왜 분리되는지**(스케일 아웃 단위, 장애 격리, 보안 경계)를 기준으로 배치했습니다. 시크릿은 코드에서 분리해 `.env`로 관리하고 저장소에는 `.env.example`만 커밋했습니다.
+## 진행 결과
 
-## 관련 자격
-
-- NCA (Naver Cloud Associate), 2025.11
-- DANCE 네이버 클라우드 아키텍트 양성과정 수료
+- 현장실습에서 계획한 PoC를 완성했음.
+- 각 서버가 어떤 순서로 연결되는지 직접 구성하며 확인했음.
+- 실습 종료 후 코드를 GitHub에 백업하고 민감한 값은 제거했음.
